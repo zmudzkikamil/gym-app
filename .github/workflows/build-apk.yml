@@ -1,0 +1,60 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - run: npm ci
+      - run: npx cap sync android
+
+      - name: Przygotuj klucz podpisu
+        if: env.KEYSTORE_BASE64 != ''
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/dziennik.jks"
+          echo "DZIENNIK_KEYSTORE=$RUNNER_TEMP/dziennik.jks" >> "$GITHUB_ENV"
+
+      - name: Zbuduj podpisane APK
+        if: env.KEYSTORE_BASE64 != ''
+        working-directory: android
+        env:
+          DZIENNIK_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          DZIENNIK_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          DZIENNIK_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease -PversionCode=${{ github.run_number }}
+          cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/dziennik-${{ github.run_number }}.apk"
+
+      - name: Zbuduj APK testowe (brak klucza w Secrets)
+        if: env.KEYSTORE_BASE64 == ''
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug -PversionCode=${{ github.run_number }}
+          cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/dziennik-${{ github.run_number }}-debug.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dziennik-apk-${{ github.run_number }}
+          path: ${{ runner.temp }}/dziennik-*.apk

@@ -1,0 +1,8 @@
+{
+  "appId": "pl.dziennik.trening",
+  "appName": "Dziennik",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  }
+}
