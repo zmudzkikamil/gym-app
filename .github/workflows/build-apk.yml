@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     env:
       KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
     steps:
@@ -60,3 +62,13 @@ jobs:
         with:
           name: dziennik-apk-${{ github.run_number }}
           path: ${{ runner.temp }}/dziennik-*.apk
+
+      - name: Opublikuj APK jako wydanie (Releases)
+        if: env.KEYSTORE_BASE64 != '' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ github.run_number }}" "$RUNNER_TEMP/dziennik-${{ github.run_number }}.apk" \
+            --title "Dziennik v${{ github.run_number }}" \
+            --notes "APK zbudowane z commita ${GITHUB_SHA::7}. Instaluje się na poprzednią wersję bez utraty danych." \
+            --target "$GITHUB_SHA"
