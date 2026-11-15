@@ -24,6 +24,8 @@ jobs:
           java-version: 21
 
       - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools'
 
       - run: npm ci
       - run: npx cap sync android
